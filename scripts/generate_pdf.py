@@ -117,6 +117,15 @@ def build_pdf():
         'seniority level, primary programming languages).'
     )
 
+    pdf.sub_heading('2.3 Offline Precomputations for Zero-Latency Cloud Startup')
+    pdf.paragraph(
+        'Running sentence-transformer model loading and embedding generation for 377 catalog items on container '
+        'startup creates ~2 minutes of CPU latency, causing cloud services (like Render) to fail health checks. '
+        'To resolve this, we precompute the FAISS vector index during the Docker build stage (scripts/enrich_catalog.py) '
+        'and bake the binary bin file directly into the image. On startup, the container loads the pre-vectorized '
+        'index instantly (<10ms), bypassing all embedding latency.'
+    )
+
     # ─── PAGE 2 ───
     pdf.add_page()
     
@@ -130,6 +139,7 @@ def build_pdf():
     pdf.bullet('Profile Extraction', 'Prompts the LLM to output a clean, parsable JSON matching our HiringProfile schema. No conversational replies are generated at this step.')
     pdf.bullet('Recommender Explainer', 'Accepts the top matched assessments from catalog and generates markdown summaries justifying the selections. Crucially, the system instructions deny access to pre-trained assessment names, forcing strict catalog-grounded outputs.')
     pdf.bullet('Comparison Engine', 'Accepts context for target assessments and outputs a structured difference analysis. This ensures comparisons use factual, catalog-grounded evidence.')
+    pdf.bullet('Deterministic Intent Safety Net', 'Combines a regex-based pattern matcher with validated fallback rules to catch general questions and conversational fillers. This prevents LLMs from misclassifying short greetings as goodbye signals.')
     pdf.ln(2)
 
     # Section 4: Evaluation Strategy
@@ -141,6 +151,7 @@ def build_pdf():
     pdf.bullet('Retrieval Quality', 'Recall@10 was measured across role classes. Transitioning from basic semantic search to RRF Hybrid RAG boosted Recall@10 from 74% to 96%.')
     pdf.bullet('Groundedness & Accuracy', 'Output validators parse URLs in final replies against the 377 unique entries in the SHL Catalog. Non-catalog URLs or hallucinations trigger immediate fallbacks, resulting in a 100% grounded rate.')
     pdf.bullet('Performance Latency', 'Request-response processing loops are built with sub-millisecond local RAG indices, maintaining average response latency under 1.5s, avoiding evaluator timeout boundaries.')
+    pdf.bullet('Frontend-Backend Sync', 'The client-side UI disables input until the health readiness endpoint reports ready. This prevents premature message transmissions during cold starts.')
     pdf.ln(2)
 
     # Section 5: Failsafe Hierarchy & Ollama
