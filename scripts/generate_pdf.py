@@ -19,32 +19,32 @@ class ApproachPDF(FPDF):
         self.cell(0, 10, f'Page {self.page_no()} of 2', 0, 0, 'R')
 
     def chapter_title(self, label):
-        self.set_font('Helvetica', 'B', 12)
+        self.set_font('Helvetica', 'B', 11)
         self.set_fill_color(243, 244, 246) # Light grey bg
         self.set_text_color(49, 46, 129) # Indigo text
-        self.cell(0, 8, f'  {label}', 0, 1, 'L', True)
-        self.ln(3)
+        self.cell(0, 7, f'  {label}', 0, 1, 'L', True)
+        self.ln(1.5)
 
     def sub_heading(self, label):
-        self.set_font('Helvetica', 'B', 10)
+        self.set_font('Helvetica', 'B', 9.5)
         self.set_text_color(99, 102, 241) # Light purple accent
-        self.cell(0, 6, label, 0, 1, 'L')
-        self.ln(1)
+        self.cell(0, 5, label, 0, 1, 'L')
+        self.ln(0.5)
 
     def paragraph(self, text):
-        self.set_font('Helvetica', '', 9.5)
+        self.set_font('Helvetica', '', 9.0)
         self.set_text_color(40, 40, 40)
-        self.multi_cell(0, 5, text)
-        self.ln(3.5)
+        self.multi_cell(0, 4.2, text)
+        self.ln(2.0)
 
     def bullet(self, title, desc):
-        self.set_font('Helvetica', 'B', 9.5)
+        self.set_font('Helvetica', 'B', 9.0)
         self.set_text_color(30, 30, 30)
-        self.write(5, f'-  {title}: ')
-        self.set_font('Helvetica', '', 9.5)
+        self.write(4.2, f'-  {title}: ')
+        self.set_font('Helvetica', '', 9.0)
         self.set_text_color(50, 50, 50)
-        self.write(5, f'{desc}\n')
-        self.ln(1.5)
+        self.write(4.2, f'{desc}\n')
+        self.ln(0.8)
 
 def build_pdf():
     pdf = ApproachPDF()
@@ -117,6 +117,9 @@ def build_pdf():
         'seniority level, primary programming languages).'
     )
 
+    # ─── PAGE 2 ───
+    pdf.add_page()
+    
     pdf.sub_heading('2.3 Offline Precomputations for Zero-Latency Cloud Startup')
     pdf.paragraph(
         'Running sentence-transformer model loading and embedding generation for 377 catalog items on container '
@@ -126,9 +129,6 @@ def build_pdf():
         'index instantly (<10ms), bypassing all embedding latency.'
     )
 
-    # ─── PAGE 2 ───
-    pdf.add_page()
-    
     # Section 3: Prompt Design
     pdf.chapter_title('3. Context & Prompt Engineering')
     pdf.paragraph(
@@ -136,35 +136,35 @@ def build_pdf():
         'single-responsibility tasks:'
     )
     
-    pdf.bullet('Profile Extraction', 'Prompts the LLM to output a clean, parsable JSON matching our HiringProfile schema. No conversational replies are generated at this step.')
-    pdf.bullet('Recommender Explainer', 'Accepts the top matched assessments from catalog and generates markdown summaries justifying the selections. Crucially, the system instructions deny access to pre-trained assessment names, forcing strict catalog-grounded outputs.')
-    pdf.bullet('Comparison Engine', 'Accepts context for target assessments and outputs a structured difference analysis. This ensures comparisons use factual, catalog-grounded evidence.')
-    pdf.bullet('Deterministic Intent Safety Net', 'Combines a regex-based pattern matcher with validated fallback rules to catch general questions and conversational fillers. This prevents LLMs from misclassifying short greetings as goodbye signals.')
-    pdf.ln(2)
+    pdf.bullet('Profile Extraction', 'Extracts structured HiringProfile JSON from conversation history.')
+    pdf.bullet('Recommender Explainer', 'Generates grounded summaries justifying selected catalog items without model hallucinations.')
+    pdf.bullet('Comparison Engine', 'Provides difference analysis based strictly on factual catalog context.')
+    pdf.bullet('Intent Safety Net', 'Combines regex patterns with fallback rules to validate LLM intents against conversational fillers.')
+    pdf.ln(1)
 
     # Section 4: Evaluation Strategy
     pdf.chapter_title('4. Evaluation Strategy & Improvements')
     pdf.paragraph(
-        'To systematically improve performance instead of guessing, we created an automated offline evaluation '
+        'To systematically improve performance, we created an automated offline evaluation '
         'suite (evaluation/evaluate.py) that replays golden conversation traces:'
     )
-    pdf.bullet('Retrieval Quality', 'Recall@10 was measured across role classes. Transitioning from basic semantic search to RRF Hybrid RAG boosted Recall@10 from 74% to 96%.')
-    pdf.bullet('Groundedness & Accuracy', 'Output validators parse URLs in final replies against the 377 unique entries in the SHL Catalog. Non-catalog URLs or hallucinations trigger immediate fallbacks, resulting in a 100% grounded rate.')
-    pdf.bullet('Performance Latency', 'Request-response processing loops are built with sub-millisecond local RAG indices, maintaining average response latency under 1.5s, avoiding evaluator timeout boundaries.')
-    pdf.bullet('Frontend-Backend Sync', 'The client-side UI disables input until the health readiness endpoint reports ready. This prevents premature message transmissions during cold starts.')
-    pdf.ln(2)
+    pdf.bullet('Retrieval Quality', 'RRF Hybrid RAG boosted Recall@10 from 74% to 96% across role classes.')
+    pdf.bullet('Groundedness & Accuracy', 'Validators enforce strict catalog URLs, achieving a 100% grounded rate.')
+    pdf.bullet('Performance Latency', 'Sub-millisecond local indices keep average response latency under 1.5 seconds.')
+    pdf.bullet('Frontend-Backend Sync', 'Frontend input is locked until readiness endpoint is OK, preventing premature queries.')
+    pdf.ln(1)
 
     # Section 5: Failsafe Hierarchy & Ollama
     pdf.chapter_title('5. Deployed Spec & Failsafe Tiering')
     pdf.paragraph(
-        'The API is packaged in Docker and deployed on cloud infrastructure (GET /health and POST /chat exposed). '
-        'To ensure high availability under rate limits or offline constraints, the client implements a 5-tier fallback structure:'
+        'The API is packaged in Docker and deployed on cloud infrastructure. To ensure high availability '
+        'under rate limits, the client implements a 5-tier fallback structure:'
     )
     
     pdf.bullet('Tier 1: Gemini Cloud SDK', 'Primary client utilizing gemini-2.0-flash with SDK optimizations.')
     pdf.bullet('Tier 2: Direct HTTP REST', 'Triggered on SDK failure, bypassing library overhead.')
     pdf.bullet('Tier 3: Ollama Cloud (Gemma-4)', 'Active provider routed to Ollama Cloud using Gemma-4 (31B) model.')
-    pdf.bullet('Tier 4: Local Ollama Fallback', 'Invoked automatically on cloud connection issues, querying local Gemma-4 at http://localhost:11434.')
+    pdf.bullet('Tier 4: Local Ollama Fallback', 'Invoked automatically on cloud connection issues to localhost:11434.')
     pdf.bullet('Tier 5: Offline Static Fallback', 'Generates deterministic JSON schema responses if all APIs are unreachable.')
 
     output_path = os.path.join("C:\\Users\\amash\\Downloads\\Assign", "approach_document.pdf")
