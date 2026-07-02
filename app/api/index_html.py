@@ -634,6 +634,9 @@ INDEX_HTML = """<!DOCTYPE html>
             {"role": "assistant", "content": "Hello! I'm the SHL Assessment Recommender Agent. I can help you compile the perfect assessment battery from our product catalog. \\n\\nWhat role are you hiring for today?"}
         ];
 
+        // Server readiness flag — blocks chat until health is ok
+        let serverReady = false;
+
         // Scenarios mapping
         const scenarios = {
             java: "I need assessments for hiring a mid-level Java developer with 3 years of experience.",
@@ -645,6 +648,12 @@ INDEX_HTML = """<!DOCTYPE html>
 
         // Initialize icons
         lucide.createIcons();
+
+        // Disable input until server is ready
+        document.getElementById('user-input').disabled = true;
+        document.getElementById('user-input').placeholder = 'Waiting for server to initialize...';
+        document.querySelector('.send-btn').disabled = true;
+        document.querySelector('.send-btn').style.opacity = '0.4';
 
         // Check health check status at loading
         let healthInterval = setInterval(checkHealth, 1000);
@@ -658,6 +667,13 @@ INDEX_HTML = """<!DOCTYPE html>
                 const overlay = document.getElementById('loading-overlay');
 
                 if (response.status === 200 && data.status === 'ok') {
+                    // Mark server as ready and enable chat input
+                    serverReady = true;
+                    const inputEl = document.getElementById('user-input');
+                    const sendBtn = document.querySelector('.send-btn');
+                    if (inputEl) { inputEl.disabled = false; inputEl.placeholder = 'Type your requirements or paste JD...'; }
+                    if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
+
                     // Hide overlay
                     if (overlay) {
                         overlay.style.opacity = '0';
@@ -725,6 +741,7 @@ INDEX_HTML = """<!DOCTYPE html>
         }
 
         async function sendMessage() {
+            if (!serverReady) return; // Block until server is ready
             const inputEl = document.getElementById('user-input');
             const messageText = inputEl.value.trim();
             if (!messageText) return;

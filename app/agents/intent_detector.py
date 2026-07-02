@@ -144,6 +144,30 @@ def detect_intent_deterministic(
             logger.info("Deterministic intent: SEARCH (first message)")
             return Intent.SEARCH
 
+    # Check for general in-domain questions (about SHL, assessments, capabilities)
+    # These should NOT be classified by LLM (which often returns CONFIRMATION/GOODBYE garbage)
+    general_question_patterns = [
+        r"^what\s+(is|are|does|do|can)\b",
+        r"^how\s+(does|do|can|is)\b",
+        r"^(tell\s+me|explain|describe)\b",
+        r"^(can\s+you|could\s+you|would\s+you)\b",
+        r"^(who|why|where|when)\b",
+        r"^(what)\??\s*$",   # Just "what" or "what?"
+    ]
+    is_general_question = _match_patterns(text, general_question_patterns)
+    
+    # If it looks like a general question and contains assessment/SHL-related words,
+    # treat it as an in-domain clarification, not something to send to LLM
+    if is_general_question:
+        assessment_words = ["assess", "shl", "test", "hire", "hiring", "recommend", "battery",
+                           "opq", "verify", "catalog", "skill", "role", "candidate"]
+        has_domain_context = any(w in text.lower() for w in assessment_words)
+        if has_domain_context:
+            logger.info("Deterministic intent: CLARIFICATION_RESPONSE (general domain question)")
+            return Intent.CLARIFICATION_RESPONSE
+        # General question with no domain context — likely off-topic but short/ambiguous
+        # Don't block it, let LLM decide (but if no clear match below, default is safe)
+
     # Check comparison (before refinement, as "compare" is more specific)
     if _match_patterns(text, COMPARISON_PATTERNS):
         logger.info("Deterministic intent: COMPARISON")
@@ -169,6 +193,12 @@ def detect_intent_deterministic(
     if _match_patterns(text, CONFIRMATION_PATTERNS):
         logger.info("Deterministic intent: CONFIRMATION")
         return Intent.CONFIRMATION
+
+    # Very short messages (1-3 words) that aren't patterns above are likely
+    # conversational fillers — treat as clarification response, not LLM-classified
+    if len(text.split()) <= 3 and len(conversation_history) > 1:
+        logger.info("Deterministic intent: CLARIFICATION_RESPONSE (short message)")
+        return Intent.CLARIFICATION_RESPONSE
 
     # No clear match — return None for LLM fallback
     return None
@@ -209,9 +239,27 @@ class IntentDetector:
         # Use LLM classification if provided
         if llm_intent:
             try:
-                intent = Intent(llm_intent.strip().upper())
-                logger.info("LLM intent: %s", intent.value)
-                return intent
+                parsed_intent = Intent(llm_intent.strip().upper())
+                
+                # Safety check: Don't trust LLM for CONFIRMATION/GOODBYE/INJECTION
+                # unless deterministic patterns also agree. The LLM frequently
+                # misclassifies general questions as these high-impact intents.
+                dangerous_intents = {Intent.CONFIRMATION, Intent.GOODBYE, Intent.INJECTION}
+                if parsed_intent in dangerous_intents:
+                    # Double-check with deterministic patterns
+                    det_check = detect_intent_deterministic(message, conversation_history)
+                    if det_check != parsed_intent:
+                        logger.warning(
+                            "LLM intent %s rejected (deterministic check disagrees: %s)",
+                            parsed_intent.value, det_check
+                        )
+                        # Fall through to default instead
+                    else:
+                        logger.info("LLM intent: %s (confirmed by deterministic check)", parsed_intent.value)
+                        return parsed_intent
+                else:
+                    logger.info("LLM intent: %s", parsed_intent.value)
+                    return parsed_intent
             except ValueError:
                 logger.warning("Invalid LLM intent: %s", llm_intent)
 
